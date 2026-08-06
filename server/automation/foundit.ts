@@ -9,7 +9,7 @@ export class FounditConnector extends BaseJobConnector {
   searchUrlTemplate = 'https://www.foundit.in/srp/results?query={role}&locations={location}';
 
   buildSearchUrl(role: string, location: string): string {
-    return `https://www.foundit.in/srp/results?query=${encodeURIComponent(role)}&locations=${encodeURIComponent(location)}`;
+    return `https://www.foundit.in/srp/results?query=${encodeURIComponent(role || 'developer')}&locations=${encodeURIComponent(location || 'pune')}`;
   }
 
   async searchJobs(
@@ -17,44 +17,51 @@ export class FounditConnector extends BaseJobConnector {
     profile: UserProfile,
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<Job[]> {
-    const targetUrl = this.buildSearchUrl(profile.jobRole || 'developer', profile.location || 'pune');
-    logCallback(`Navigating to Foundit: ${targetUrl}`, 'info');
+    const targetUrl = this.buildSearchUrl(profile.jobRole, profile.location);
+    logCallback(`Searching Foundit live portal: ${targetUrl}`, 'info');
 
     try {
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      await page.waitForTimeout(2000);
       const screenshot = await this.takeScreenshot(page, 'foundit_search');
 
-      const jobs: Job[] = [
-        {
-          id: `foundit_${Date.now()}_0`,
-          company: 'HCL Tech',
-          role: `${profile.jobRole}`,
-          location: profile.location || 'Pune',
-          experience: profile.experience || '0-2 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          matchScore: 88,
-          matchReason: `Foundit location match in ${profile.location || 'Pune'}`,
-          status: 'New'
-        },
-        {
-          id: `foundit_${Date.now()}_1`,
-          company: 'L&T Infotech',
-          role: `Software Specialist (${profile.jobRole})`,
-          location: profile.location || 'Mumbai / Pune',
-          experience: profile.experience || '1-3 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          matchScore: 85,
-          matchReason: `Keywords: ${profile.keywords || profile.jobRole}`,
-          status: 'New'
-        }
-      ];
+      const securityCheck = await this.isBlockedOrLoginRequired(page);
+      if (securityCheck.blocked) {
+        logCallback(`Foundit verification check: ${securityCheck.reason}`, 'warning', screenshot);
+      }
 
-      logCallback(`Found ${jobs.length} jobs on Foundit`, 'success', screenshot);
+      const jobCards = await page.$$('.srpResultCard, .jobCard, div.job-tuple, .srpCard');
+      const jobs: Job[] = [];
+
+      for (let i = 0; i < Math.min(jobCards.length, 10); i++) {
+        const card = jobCards[i];
+        const title = (await card.$eval('.jobTitle, .title, a.job-title', el => el.textContent?.trim()).catch(() => '')) || '';
+        const company = (await card.$eval('.companyName, .company, .company-name', el => el.textContent?.trim()).catch(() => '')) || '';
+        const loc = (await card.$eval('.location, .loc', el => el.textContent?.trim()).catch(() => '')) || profile.location || 'Pune';
+        const exp = (await card.$eval('.experience, .exp', el => el.textContent?.trim()).catch(() => '')) || profile.experience || '';
+        const linkEl = await card.$('a.jobTitle, a.job-title, a[href*="/job/"]');
+        const href = linkEl ? await page.evaluate(el => (el as HTMLAnchorElement).href, linkEl).catch(() => '') : targetUrl;
+
+        if (title && company) {
+          jobs.push({
+            id: `foundit_${Date.now()}_${i}`,
+            company,
+            role: title,
+            location: loc,
+            experience: exp,
+            applyLink: href || targetUrl,
+            sourceWebsite: this.name,
+            matchScore: Math.max(70, 92 - i * 2),
+            matchReason: `Matches role "${profile.jobRole}" in "${loc}"`,
+            status: 'New'
+          });
+        }
+      }
+
+      logCallback(`Gathered ${jobs.length} REAL active job listings from Foundit`, 'success', screenshot);
       return jobs;
     } catch (err: any) {
-      logCallback(`Foundit error: ${err.message}`, 'error');
+      logCallback(`Foundit search error: ${err.message}`, 'error');
       return [];
     }
   }
@@ -67,8 +74,18 @@ export class FounditConnector extends BaseJobConnector {
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<ApplyResult> {
     try {
-      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `foundit_apply_${job.company}`);
+      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      const screenshot = await this.takeScreenshot(page, `foundit_apply_${Date.now()}`);
+
+      const check = await this.isBlockedOrLoginRequired(page);
+      if (check.blocked) {
+        return {
+          status: 'Verification Required',
+          details: `Foundit session login required.`,
+          screenshotUrl: screenshot
+        };
+      }
+
       await this.fillCommonFields(page, profile);
       await this.uploadResumeIfSupported(page, resume);
 
@@ -90,7 +107,7 @@ export class WellfoundConnector extends BaseJobConnector {
   searchUrlTemplate = 'https://wellfound.com/jobs?role={role}';
 
   buildSearchUrl(role: string): string {
-    return `https://wellfound.com/jobs?role=${encodeURIComponent(role)}`;
+    return `https://wellfound.com/jobs?role=${encodeURIComponent(role || 'developer')}`;
   }
 
   async searchJobs(
@@ -98,43 +115,49 @@ export class WellfoundConnector extends BaseJobConnector {
     profile: UserProfile,
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<Job[]> {
-    const targetUrl = this.buildSearchUrl(profile.jobRole || 'full stack');
-    logCallback(`Navigating to Wellfound startup directory: ${targetUrl}`, 'info');
+    const targetUrl = this.buildSearchUrl(profile.jobRole);
+    logCallback(`Searching Wellfound live directory: ${targetUrl}`, 'info');
 
     try {
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      await page.waitForTimeout(2000);
       const screenshot = await this.takeScreenshot(page, 'wellfound_search');
 
-      const jobs: Job[] = [
-        {
-          id: `wellfound_${Date.now()}_0`,
-          company: 'HyperGrowth AI (Series B)',
-          role: `${profile.jobRole}`,
-          location: 'Remote (Worldwide)',
-          experience: profile.experience || '0-3 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          salary: '$60k - $90k + Equity',
-          matchScore: 97,
-          matchReason: `High Remote startup fit for ${profile.skills}`,
-          status: 'New'
-        },
-        {
-          id: `wellfound_${Date.now()}_1`,
-          company: 'FinTech Cloud',
-          role: `Lead ${profile.jobRole}`,
-          location: 'Remote / Hybrid',
-          experience: profile.experience || '2+ Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          salary: '$70k - $100k',
-          matchScore: 92,
-          matchReason: `Wellfound startup ecosystem match`,
-          status: 'New'
-        }
-      ];
+      const securityCheck = await this.isBlockedOrLoginRequired(page);
+      if (securityCheck.blocked) {
+        logCallback(`Wellfound security guard: ${securityCheck.reason}`, 'warning', screenshot);
+      }
 
-      logCallback(`Found ${jobs.length} high-growth startup roles on Wellfound`, 'success', screenshot);
+      const jobCards = await page.$$('[data-test="JobResultCard"], .styles_component__2k9f0, div[class*="styles_jobResult"]');
+      const jobs: Job[] = [];
+
+      for (let i = 0; i < Math.min(jobCards.length, 10); i++) {
+        const card = jobCards[i];
+        const title = (await card.$eval('a[class*="title"], h2, [class*="jobTitle"]', el => el.textContent?.trim()).catch(() => '')) || '';
+        const company = (await card.$eval('h2[class*="startupName"], [class*="companyName"]', el => el.textContent?.trim()).catch(() => '')) || '';
+        const loc = (await card.$eval('[class*="location"]', el => el.textContent?.trim()).catch(() => '')) || 'Remote / Hybrid';
+        const salary = (await card.$eval('[class*="compensation"]', el => el.textContent?.trim()).catch(() => '')) || 'Competitive + Equity';
+        const linkEl = await card.$('a[href*="/jobs/"]');
+        const href = linkEl ? await page.evaluate(el => (el as HTMLAnchorElement).href, linkEl).catch(() => '') : targetUrl;
+
+        if (title && company) {
+          jobs.push({
+            id: `wellfound_${Date.now()}_${i}`,
+            company,
+            role: title,
+            location: loc,
+            experience: profile.experience || 'Startup Entry-Mid',
+            salary,
+            applyLink: href || targetUrl,
+            sourceWebsite: this.name,
+            matchScore: Math.max(70, 96 - i * 2),
+            matchReason: `High Remote startup fit for ${profile.skills}`,
+            status: 'New'
+          });
+        }
+      }
+
+      logCallback(`Gathered ${jobs.length} REAL active startup roles from Wellfound`, 'success', screenshot);
       return jobs;
     } catch (err: any) {
       logCallback(`Wellfound error: ${err.message}`, 'error');
@@ -150,8 +173,18 @@ export class WellfoundConnector extends BaseJobConnector {
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<ApplyResult> {
     try {
-      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `wellfound_apply_${job.company}`);
+      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      const screenshot = await this.takeScreenshot(page, `wellfound_apply_${Date.now()}`);
+
+      const check = await this.isBlockedOrLoginRequired(page);
+      if (check.blocked) {
+        return {
+          status: 'Verification Required',
+          details: `Wellfound session login required.`,
+          screenshotUrl: screenshot
+        };
+      }
+
       await this.fillCommonFields(page, profile);
       await this.uploadResumeIfSupported(page, resume);
 
@@ -173,7 +206,7 @@ export class LinkedInConnector extends BaseJobConnector {
   searchUrlTemplate = 'https://www.linkedin.com/jobs/search/?keywords={role}&location={location}';
 
   buildSearchUrl(role: string, location: string): string {
-    return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}`;
+    return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(role || 'developer')}&location=${encodeURIComponent(location || 'India')}`;
   }
 
   async searchJobs(
@@ -181,58 +214,47 @@ export class LinkedInConnector extends BaseJobConnector {
     profile: UserProfile,
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<Job[]> {
-    const targetUrl = this.buildSearchUrl(profile.jobRole || 'software engineer', profile.location || 'India');
-    logCallback(`Searching LinkedIn public jobs: ${targetUrl}`, 'info');
+    const targetUrl = this.buildSearchUrl(profile.jobRole, profile.location);
+    logCallback(`Searching LinkedIn live jobs: ${targetUrl}`, 'info');
 
     try {
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      await page.waitForTimeout(2000);
       const screenshot = await this.takeScreenshot(page, 'linkedin_search');
 
       const securityCheck = await this.isBlockedOrLoginRequired(page);
       if (securityCheck.blocked) {
-        logCallback(`LinkedIn auth guard: ${securityCheck.reason}`, 'warning');
+        logCallback(`LinkedIn auth guard: ${securityCheck.reason}`, 'warning', screenshot);
       }
 
-      const jobs: Job[] = [
-        {
-          id: `linkedin_${Date.now()}_0`,
-          company: 'Google',
-          role: `${profile.jobRole} - Cloud Systems`,
-          location: profile.location || 'Bangalore / Hyderabad',
-          experience: profile.experience || '1-4 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          matchScore: 98,
-          matchReason: `LinkedIn Easy Apply match for ${profile.jobRole}`,
-          status: 'New'
-        },
-        {
-          id: `linkedin_${Date.now()}_1`,
-          company: 'Microsoft',
-          role: `Software Engineer (${profile.jobRole})`,
-          location: profile.location || 'Hyderabad',
-          experience: profile.experience || '1-3 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          matchScore: 94,
-          matchReason: `Strong match for skills: ${profile.skills}`,
-          status: 'New'
-        },
-        {
-          id: `linkedin_${Date.now()}_2`,
-          company: 'Atlassian',
-          role: `${profile.jobRole} (Fullstack)`,
-          location: 'Remote',
-          experience: profile.experience || '0-2 Yrs',
-          applyLink: targetUrl,
-          sourceWebsite: this.name,
-          matchScore: 91,
-          matchReason: `Remote mode preference match`,
-          status: 'New'
-        }
-      ];
+      const jobCards = await page.$$('.job-card-container, .base-card, .job-search-card');
+      const jobs: Job[] = [];
 
-      logCallback(`Found ${jobs.length} jobs on LinkedIn`, 'success', screenshot);
+      for (let i = 0; i < Math.min(jobCards.length, 10); i++) {
+        const card = jobCards[i];
+        const title = (await card.$eval('.job-card-list__title, .base-search-card__title', el => el.textContent?.trim()).catch(() => '')) || '';
+        const company = (await card.$eval('.job-card-container__primary-description, .base-search-card__subtitle', el => el.textContent?.trim()).catch(() => '')) || '';
+        const loc = (await card.$eval('.job-card-container__metadata-item, .job-search-card__location', el => el.textContent?.trim()).catch(() => '')) || profile.location || 'India';
+        const linkEl = await card.$('a.job-card-list__title, a.base-card__full-link');
+        const href = linkEl ? await page.evaluate(el => (el as HTMLAnchorElement).href, linkEl).catch(() => '') : targetUrl;
+
+        if (title && company) {
+          jobs.push({
+            id: `linkedin_${Date.now()}_${i}`,
+            company,
+            role: title,
+            location: loc,
+            experience: profile.experience || '1-3 Yrs',
+            applyLink: href || targetUrl,
+            sourceWebsite: this.name,
+            matchScore: Math.max(70, 97 - i * 2),
+            matchReason: `LinkedIn match for ${profile.jobRole} in ${loc}`,
+            status: 'New'
+          });
+        }
+      }
+
+      logCallback(`Gathered ${jobs.length} REAL active job listings from LinkedIn`, 'success', screenshot);
       return jobs;
     } catch (err: any) {
       logCallback(`LinkedIn search error: ${err.message}`, 'error');
@@ -248,14 +270,14 @@ export class LinkedInConnector extends BaseJobConnector {
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<ApplyResult> {
     try {
-      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `linkedin_apply_${job.company}`);
+      await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      const screenshot = await this.takeScreenshot(page, `linkedin_apply_${Date.now()}`);
 
       const check = await this.isBlockedOrLoginRequired(page);
       if (check.blocked) {
         return {
           status: 'Verification Required',
-          details: `LinkedIn requires login session. Prepared form data.`,
+          details: `LinkedIn requires active login session. Form parameters staged.`,
           screenshotUrl: screenshot
         };
       }

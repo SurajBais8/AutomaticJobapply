@@ -1,7 +1,7 @@
 import initSqlJs, { Database } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
-import { Job, ApplicationLog, LogEntry, UserProfile, ResumeFile } from '../src/types/index.js';
+import { Job, ApplicationLog, LogEntry, UserProfile, ResumeFile, SiteCredential, AutomationSettings } from '../src/types/index.js';
 
 const DB_DIR = path.join(process.cwd(), 'database');
 const DB_FILE = path.join(DB_DIR, 'jobs.db');
@@ -36,7 +36,33 @@ export async function getDb(): Promise<Database> {
       parsedText TEXT,
       parsedSkills TEXT,
       parsedEmail TEXT,
-      parsedPhone TEXT
+      parsedPhone TEXT,
+      isActive INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS user_credentials (
+      id TEXT PRIMARY KEY,
+      websiteName TEXT NOT NULL,
+      email TEXT NOT NULL,
+      encryptedPassword TEXT NOT NULL,
+      rememberMe INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'Not Logged In',
+      lastLoginTime TEXT,
+      updatedAt TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS automation_settings (
+      id TEXT PRIMARY KEY,
+      browserType TEXT DEFAULT 'chrome',
+      headless INTEGER DEFAULT 1,
+      maxJobs INTEGER DEFAULT 25,
+      delayBetweenJobs INTEGER DEFAULT 3,
+      randomDelay INTEGER DEFAULT 1,
+      timeout INTEGER DEFAULT 30000,
+      retryCount INTEGER DEFAULT 3,
+      autoStop INTEGER DEFAULT 1,
+      desktopNotification INTEGER DEFAULT 1,
+      soundNotification INTEGER DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS user_profiles (
@@ -114,13 +140,152 @@ export function saveDb() {
   }
 }
 
-// Data Helper Functions
+// Credentials Helper Functions
+export async function saveCredential(cred: {
+  id: string;
+  websiteName: string;
+  email: string;
+  encryptedPassword: string;
+  rememberMe: boolean;
+  status: string;
+  lastLoginTime?: string;
+}) {
+  const database = await getDb();
+  const now = new Date().toISOString();
+  database.run(
+    `INSERT OR REPLACE INTO user_credentials (id, websiteName, email, encryptedPassword, rememberMe, status, lastLoginTime, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      cred.id,
+      cred.websiteName,
+      cred.email,
+      cred.encryptedPassword,
+      cred.rememberMe ? 1 : 0,
+      cred.status,
+      cred.lastLoginTime || '',
+      now
+    ]
+  );
+  saveDb();
+}
 
+export async function getCredentials(): Promise<SiteCredential[]> {
+  const database = await getDb();
+  const stmt = database.prepare('SELECT id, websiteName, email, rememberMe, status, lastLoginTime, updatedAt FROM user_credentials');
+  const creds: SiteCredential[] = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    creds.push({
+      id: String(row.id),
+      websiteName: String(row.websiteName),
+      email: String(row.email),
+      rememberMe: Boolean(row.rememberMe),
+      status: String(row.status) as any,
+      lastLoginTime: String(row.lastLoginTime || ''),
+      updatedAt: String(row.updatedAt || '')
+    });
+  }
+  stmt.free();
+  return creds;
+}
+
+export async function getCredentialRaw(id: string): Promise<{
+  id: string;
+  websiteName: string;
+  email: string;
+  encryptedPassword: string;
+  rememberMe: boolean;
+  status: string;
+} | null> {
+  const database = await getDb();
+  const stmt = database.prepare('SELECT * FROM user_credentials WHERE id = ?');
+  stmt.bind([id]);
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    stmt.free();
+    return {
+      id: String(row.id),
+      websiteName: String(row.websiteName),
+      email: String(row.email),
+      encryptedPassword: String(row.encryptedPassword),
+      rememberMe: Boolean(row.rememberMe),
+      status: String(row.status)
+    };
+  }
+  stmt.free();
+  return null;
+}
+
+export async function deleteCredential(id: string) {
+  const database = await getDb();
+  database.run('DELETE FROM user_credentials WHERE id = ?', [id]);
+  saveDb();
+}
+
+// Automation Settings Helpers
+export async function getAutomationSettings(): Promise<AutomationSettings> {
+  const database = await getDb();
+  const stmt = database.prepare("SELECT * FROM automation_settings WHERE id = 'default'");
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    stmt.free();
+    return {
+      browserType: (row.browserType as any) || 'chrome',
+      headless: Boolean(row.headless),
+      maxJobs: Number(row.maxJobs) || 25,
+      delayBetweenJobs: Number(row.delayBetweenJobs) || 3,
+      randomDelay: Boolean(row.randomDelay),
+      timeout: Number(row.timeout) || 30000,
+      retryCount: Number(row.retryCount) || 3,
+      autoStop: Boolean(row.autoStop),
+      desktopNotification: Boolean(row.desktopNotification),
+      soundNotification: Boolean(row.soundNotification)
+    };
+  }
+  stmt.free();
+
+  // Return defaults
+  return {
+    browserType: 'chrome',
+    headless: true,
+    maxJobs: 25,
+    delayBetweenJobs: 3,
+    randomDelay: true,
+    timeout: 30000,
+    retryCount: 3,
+    autoStop: true,
+    desktopNotification: true,
+    soundNotification: true
+  };
+}
+
+export async function saveAutomationSettings(settings: AutomationSettings) {
+  const database = await getDb();
+  database.run(
+    `INSERT OR REPLACE INTO automation_settings (id, browserType, headless, maxJobs, delayBetweenJobs, randomDelay, timeout, retryCount, autoStop, desktopNotification, soundNotification)
+     VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      settings.browserType,
+      settings.headless ? 1 : 0,
+      settings.maxJobs,
+      settings.delayBetweenJobs,
+      settings.randomDelay ? 1 : 0,
+      settings.timeout,
+      settings.retryCount,
+      settings.autoStop ? 1 : 0,
+      settings.desktopNotification ? 1 : 0,
+      settings.soundNotification ? 1 : 0
+    ]
+  );
+  saveDb();
+}
+
+// Resume Helper Functions
 export async function saveResume(resume: ResumeFile) {
   const database = await getDb();
   database.run(
-    `INSERT OR REPLACE INTO resumes (id, originalName, filename, path, uploadDate, size, parsedText, parsedSkills, parsedEmail, parsedPhone)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO resumes (id, originalName, filename, path, uploadDate, size, parsedText, parsedSkills, parsedEmail, parsedPhone, isActive)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       resume.id,
       resume.originalName,
@@ -131,15 +296,29 @@ export async function saveResume(resume: ResumeFile) {
       resume.parsedText || '',
       JSON.stringify(resume.parsedSkills || []),
       resume.parsedEmail || '',
-      resume.parsedPhone || ''
+      resume.parsedPhone || '',
+      resume.isActive ? 1 : 0
     ]
   );
   saveDb();
 }
 
+export async function setActiveResume(id: string) {
+  const database = await getDb();
+  database.run('UPDATE resumes SET isActive = 0');
+  database.run('UPDATE resumes SET isActive = 1 WHERE id = ?', [id]);
+  saveDb();
+}
+
+export async function deleteResume(id: string) {
+  const database = await getDb();
+  database.run('DELETE FROM resumes WHERE id = ?', [id]);
+  saveDb();
+}
+
 export async function getResumes(): Promise<ResumeFile[]> {
   const database = await getDb();
-  const stmt = database.prepare('SELECT * FROM resumes ORDER BY uploadDate DESC');
+  const stmt = database.prepare('SELECT * FROM resumes ORDER BY isActive DESC, uploadDate DESC');
   const resumes: ResumeFile[] = [];
   while (stmt.step()) {
     const row = stmt.getAsObject();
@@ -153,7 +332,8 @@ export async function getResumes(): Promise<ResumeFile[]> {
       parsedText: String(row.parsedText || ''),
       parsedSkills: row.parsedSkills ? JSON.parse(String(row.parsedSkills)) : [],
       parsedEmail: String(row.parsedEmail || ''),
-      parsedPhone: String(row.parsedPhone || '')
+      parsedPhone: String(row.parsedPhone || ''),
+      isActive: Boolean(row.isActive)
     });
   }
   stmt.free();

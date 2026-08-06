@@ -8,16 +8,25 @@ import { createServer as createViteServer } from 'vite';
 import {
   getResumes,
   saveResume,
+  setActiveResume,
+  deleteResume,
   getUserProfile,
   saveUserProfile,
   getJobs,
   clearJobs,
   getAppLogs,
   getSystemLogs,
-  clearLogs
+  clearLogs,
+  getCredentials,
+  saveCredential,
+  deleteCredential,
+  getAutomationSettings,
+  saveAutomationSettings
 } from './server/db.js';
 import { parseResumeFile } from './server/resumeParser.js';
 import { automationController } from './server/automationController.js';
+import { encryptPassword } from './server/services/encryptionService.js';
+import { sessionManager } from './server/services/sessionManager.js';
 
 const app = express();
 const PORT = 3000;
@@ -59,11 +68,101 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// Credentials Endpoints
+app.get('/api/credentials', async (_req, res) => {
+  try {
+    const creds = await getCredentials();
+    // Update live session status check
+    const enriched = creds.map(c => ({
+      ...c,
+      status: sessionManager.sessionExists(c.id) ? ('Connected' as const) : c.status
+    }));
+    res.json(enriched);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/credentials', async (req, res) => {
+  try {
+    const { websiteId, websiteName, email, password, rememberMe } = req.body;
+
+    if (!websiteId || !email || !password) {
+      return res.status(400).json({ error: 'Website, email and password are required' });
+    }
+
+    const encryptedPassword = encryptPassword(password);
+    const credData = {
+      id: websiteId,
+      websiteName: websiteName || websiteId,
+      email,
+      encryptedPassword,
+      rememberMe: rememberMe !== undefined ? rememberMe : true,
+      status: 'Not Logged In' as const,
+      lastLoginTime: new Date().toISOString()
+    };
+
+    await saveCredential(credData);
+    res.json({ success: true, credential: credData });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/credentials/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteCredential(id);
+    await sessionManager.deleteSession(id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Automation Settings Endpoints
+app.get('/api/settings', async (_req, res) => {
+  try {
+    const settings = await getAutomationSettings();
+    res.json(settings);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/settings', async (req, res) => {
+  try {
+    const settings = req.body;
+    await saveAutomationSettings(settings);
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Resume endpoints
 app.get('/api/resumes', async (_req, res) => {
   try {
     const resumes = await getResumes();
     res.json(resumes);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/resumes/:id/active', async (req, res) => {
+  try {
+    await setActiveResume(req.params.id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/resumes/:id', async (req, res) => {
+  try {
+    await deleteResume(req.params.id);
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -88,10 +187,12 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       parsedText: parsed.text,
       parsedSkills: parsed.skills,
       parsedEmail: parsed.email,
-      parsedPhone: parsed.phone
+      parsedPhone: parsed.phone,
+      isActive: true
     };
 
     await saveResume(resumeData);
+    await setActiveResume(resumeData.id);
 
     // Auto update user profile if email/phone/skills parsed
     const currentProfile = (await getUserProfile()) || {
@@ -183,6 +284,16 @@ app.post('/api/automation/start', async (req, res) => {
 app.post('/api/automation/stop', (_req, res) => {
   automationController.stopAutomation();
   res.json({ success: true, message: 'Stop signal sent' });
+});
+
+app.post('/api/automation/otp', async (req, res) => {
+  try {
+    const { otpCode } = req.body;
+    await automationController.resumeWithOtp(otpCode);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/automation/status', (_req, res) => {

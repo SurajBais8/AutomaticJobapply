@@ -18,13 +18,19 @@ import {
   fetchJobs,
   clearJobs,
   fetchLogs,
-  clearLogs
+  clearLogs,
+  submitOtp
 } from './services/api';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
-import { Bot, Sparkles, RefreshCw, Layers } from 'lucide-react';
+import { CredentialsManager } from './components/CredentialsManager';
+import { AutomationSettingsModal } from './components/AutomationSettingsModal';
+import { Bot, RefreshCw, KeyRound, LayoutDashboard, Sliders, ShieldAlert, Key, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'credentials'>('dashboard');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const [profile, setProfile] = useState<UserProfile>({
     jobRole: 'Java Full Stack Developer',
     experience: '5 Months',
@@ -42,6 +48,8 @@ export default function App() {
   const [selectedWebsiteIds, setSelectedWebsiteIds] = useState<string[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appLogs, setAppLogs] = useState<ApplicationLog[]>([]);
+  const [otpInput, setOtpInput] = useState('');
+  const [isSubmittingOtp, setIsSubmittingOtp] = useState(false);
 
   const [automationProgress, setAutomationProgress] = useState<AutomationProgress>({
     isRunning: false,
@@ -82,7 +90,7 @@ export default function App() {
     loadInitialData();
   }, []);
 
-  // Poll automation status & jobs when running or active
+  // Poll automation status & jobs
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -132,6 +140,19 @@ export default function App() {
     }
   };
 
+  const handleSubmitOtp = async () => {
+    if (!otpInput) return;
+    setIsSubmittingOtp(true);
+    try {
+      await submitOtp(otpInput);
+      setOtpInput('');
+    } catch (err: any) {
+      alert(`OTP submit failed: ${err.message}`);
+    } finally {
+      setIsSubmittingOtp(false);
+    }
+  };
+
   const handleClearLogs = async () => {
     try {
       await clearLogs();
@@ -155,31 +176,66 @@ export default function App() {
     window.open('/api/reports/export', '_blank');
   };
 
-  const activeResume = resumes.length > 0 ? resumes[0] : null;
+  const activeResume = resumes.find(r => r.isActive) || (resumes.length > 0 ? resumes[0] : null);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-500 selection:text-white flex flex-col">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-2.5 shadow-2xs">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-2 shadow-2xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg shadow-sm text-white font-bold">
-              <Bot className="w-5 h-5" />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-blue-600 rounded-lg shadow-sm text-white font-bold">
+                <Bot className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                  <span className="text-blue-600">AI Job Apply Assistant</span>
+                  <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+                    v2.0 (Auth & Session Engine)
+                  </span>
+                </h1>
+                <p className="text-[11px] text-slate-500 hidden sm:block font-medium">
+                  Automated job applications, encrypted session manager & multi-portal scraper
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                <span className="text-blue-600">AI Job Apply Assistant</span>
-                <span className="text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
-                  v1.2.0 (Stable)
-                </span>
-              </h1>
-              <p className="text-xs text-slate-500 hidden sm:block font-medium">
-                High Density • Automated job applications & multi-portal scraper
-              </p>
-            </div>
+
+            {/* Main Nav Tabs */}
+            <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 ml-4">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Dashboard & Applications
+              </button>
+              <button
+                onClick={() => setActiveTab('credentials')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'credentials'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Credentials Manager
+              </button>
+            </nav>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">Settings</span>
+            </button>
             <button
               onClick={loadInitialData}
               title="Refresh Data"
@@ -187,46 +243,106 @@ export default function App() {
             >
               <RefreshCw className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-1.5 text-xs bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-md font-medium text-slate-700">
-              <Layers className="w-3.5 h-3.5 text-blue-600" />
-              <span>SQLite DB Ready</span>
-            </div>
           </div>
+        </div>
+
+        {/* Mobile Tab Switcher */}
+        <div className="flex md:hidden items-center justify-around mt-2 pt-2 border-t border-slate-100 text-xs">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex-1 py-1 font-bold text-center ${activeTab === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('credentials')}
+            className={`flex-1 py-1 font-bold text-center ${activeTab === 'credentials' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}
+          >
+            Credentials Manager
+          </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-7xl w-full mx-auto p-4 sm:p-5 flex-1 flex flex-col lg:flex-row gap-5">
-        {/* Left Panel: Inputs, Resume, Website Selection & Controls */}
-        <LeftPanel
-          profile={profile}
-          resumes={resumes}
-          activeResume={activeResume}
-          websites={websites}
-          selectedWebsiteIds={selectedWebsiteIds}
-          isRunning={automationProgress.isRunning}
-          onProfileChange={setProfile}
-          onSaveProfile={handleSaveProfile}
-          onUploadSuccess={handleUploadSuccess}
-          onWebsitesChange={setSelectedWebsiteIds}
-          onStartAutomation={handleStartAutomation}
-          onStopAutomation={handleStopAutomation}
-        />
+      {/* OTP / CAPTCHA Banner Prompt when paused */}
+      {(automationProgress.requiresOtp || automationProgress.requiresCaptcha) && (
+        <div className="bg-amber-500 text-slate-950 px-4 py-3 shadow-md border-b border-amber-600 flex items-center justify-between gap-4 sticky top-12 z-40">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-6 h-6 shrink-0 text-slate-950 animate-pulse" />
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wide">
+                Automation Paused: {automationProgress.requiresOtp ? 'OTP Verification Required' : 'Manual CAPTCHA Detected'} on {automationProgress.pausedWebsite || 'Website'}
+              </p>
+              <p className="text-[11px] font-medium opacity-90">
+                Please enter the verification code sent to your email/phone or complete CAPTCHA in browser context to resume.
+              </p>
+            </div>
+          </div>
 
-        {/* Right Panel: Metrics, Live View, Logs & Results */}
-        <RightPanel
-          progress={automationProgress}
-          jobs={jobs}
-          appLogs={appLogs}
-          onClearLogs={handleClearLogs}
-          onClearJobs={handleClearJobs}
-          onExportReport={handleExportReport}
-        />
+          {automationProgress.requiresOtp && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Enter 6-digit OTP"
+                value={otpInput}
+                onChange={e => setOtpInput(e.target.value)}
+                className="px-3 py-1.5 bg-white text-slate-900 font-mono text-xs font-bold rounded border border-amber-600 focus:outline-none w-36"
+              />
+              <button
+                onClick={handleSubmitOtp}
+                disabled={isSubmittingOtp || !otpInput}
+                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Submit OTP & Resume
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Container */}
+      <main className="max-w-7xl w-full mx-auto p-4 sm:p-5 flex-1 flex flex-col">
+        {activeTab === 'dashboard' ? (
+          <div className="flex-1 flex flex-col lg:flex-row gap-5">
+            {/* Left Panel: Inputs, Resume, Website Selection & Controls */}
+            <LeftPanel
+              profile={profile}
+              resumes={resumes}
+              activeResume={activeResume}
+              websites={websites}
+              selectedWebsiteIds={selectedWebsiteIds}
+              isRunning={automationProgress.isRunning}
+              onProfileChange={setProfile}
+              onSaveProfile={handleSaveProfile}
+              onUploadSuccess={handleUploadSuccess}
+              onWebsitesChange={setSelectedWebsiteIds}
+              onStartAutomation={handleStartAutomation}
+              onStopAutomation={handleStopAutomation}
+            />
+
+            {/* Right Panel: Metrics, Live View, Logs & Results */}
+            <RightPanel
+              progress={automationProgress}
+              jobs={jobs}
+              appLogs={appLogs}
+              onClearLogs={handleClearLogs}
+              onClearJobs={handleClearJobs}
+              onExportReport={handleExportReport}
+            />
+          </div>
+        ) : (
+          <CredentialsManager websites={websites} />
+        )}
       </main>
+
+      {/* Automation Settings Modal */}
+      <AutomationSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-2.5 px-4 text-center text-xs text-slate-500 font-medium">
-        AI Job Apply Assistant • High Density Engine • Powered by Playwright, Express & SQLite
+        AI Job Apply Assistant • High Density Engine • Playwright Session Storage & SQLite Encrypted Credentials
       </footer>
     </div>
   );

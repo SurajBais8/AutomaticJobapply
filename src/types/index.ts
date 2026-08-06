@@ -9,6 +9,32 @@ export type ApplicationStatus =
   | 'Failed' 
   | 'Skipped';
 
+export type CredentialStatus = 'Connected' | 'Expired' | 'Not Logged In';
+
+export interface SiteCredential {
+  id: string;
+  websiteName: string;
+  email: string;
+  password?: string;
+  rememberMe: boolean;
+  status: CredentialStatus;
+  lastLoginTime?: string;
+  updatedAt?: string;
+}
+
+export interface AutomationSettings {
+  browserType: 'chrome' | 'edge' | 'firefox';
+  headless: boolean;
+  maxJobs: number;
+  delayBetweenJobs: number; // seconds
+  randomDelay: boolean;
+  timeout: number; // ms
+  retryCount: number;
+  autoStop: boolean;
+  desktopNotification: boolean;
+  soundNotification: boolean;
+}
+
 export interface ResumeFile {
   id: string;
   originalName: string;
@@ -20,6 +46,7 @@ export interface ResumeFile {
   parsedSkills?: string[];
   parsedEmail?: string;
   parsedPhone?: string;
+  isActive?: boolean;
 }
 
 export interface UserProfile {
@@ -53,6 +80,7 @@ export interface WebsiteConfig {
   };
   requiresAuth: boolean;
   enabled: boolean;
+  credentialStatus?: CredentialStatus;
 }
 
 export interface Job {
@@ -99,6 +127,10 @@ export interface LogEntry {
 export interface AutomationProgress {
   isRunning: boolean;
   isPaused: boolean;
+  requiresOtp?: boolean;
+  requiresCaptcha?: boolean;
+  pausedWebsite?: string;
+  authMessage?: string;
   currentWebsite: string;
   currentStep: string;
   currentJob?: Job;
@@ -116,4 +148,14 @@ export interface FilterOptions {
   search: string;
   status: string;
   website: string;
+}
+
+export interface DailyReport {
+  date: string;
+  totalApplications: number;
+  successfulApplications: number;
+  failedApplications: number;
+  skippedApplications: number;
+  loginFailures: number;
+  resumeUploadFailures: number;
 }
