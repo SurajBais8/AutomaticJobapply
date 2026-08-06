@@ -77,27 +77,14 @@ export class InstahyreConnector extends BaseJobConnector {
     logCallback(`[Instahyre] Application process for ${job.company}`, 'info');
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `instahyre_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Instahyre session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Instahyre application staged with active resume.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply")',
+        'a:has-text("Apply")',
+        '.employer-job-apply',
+        'button.btn-primary'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }

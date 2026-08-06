@@ -75,27 +75,14 @@ export class FounditConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `foundit_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Foundit session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Foundit profile details staged.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply")',
+        '.applyBtn',
+        '#applyBtn',
+        'button.apply-button'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
@@ -174,27 +161,13 @@ export class WellfoundConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `wellfound_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Wellfound session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Wellfound note & resume ready. Staged for submission.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply")',
+        'button:has-text("Learn More & Apply")',
+        '[data-test="ApplyButton"]'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
@@ -271,27 +244,14 @@ export class LinkedInConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `linkedin_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `LinkedIn requires active login session. Form parameters staged.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `LinkedIn Easy Apply details staged.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button.jobs-apply-button',
+        'button:has-text("Easy Apply")',
+        'button:has-text("Apply")',
+        '.jobs-s-apply button'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }

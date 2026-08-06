@@ -5,7 +5,14 @@ export type ApplicationStatus =
   | 'Queued' 
   | 'Processing' 
   | 'Applied' 
+  | 'Ready For Confirmation'
   | 'Verification Required' 
+  | 'Login Required'
+  | 'CAPTCHA Required'
+  | 'Resume Upload Failed'
+  | 'Apply Button Missing'
+  | 'Submission Failed'
+  | 'Already Applied'
   | 'Failed' 
   | 'Skipped';
 

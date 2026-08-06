@@ -79,29 +79,15 @@ export class IndeedConnector extends BaseJobConnector {
 
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `indeed_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        logCallback(`Indeed login check: ${check.reason}`, 'warning', screenshot);
-        return {
-          status: 'Verification Required',
-          details: `Requires login session on Indeed. Profile staged.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Indeed profile & resume prepared. Staged for submission.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply now")',
+        'button:has-text("Easily apply")',
+        '#indeedApplyButton',
+        'button.indeed-apply-button'
+      ]);
     } catch (err: any) {
       return {
-        status: 'Failed',
+        status: 'Submission Failed',
         details: `Indeed apply error: ${err.message}`,
         error: err.message
       };

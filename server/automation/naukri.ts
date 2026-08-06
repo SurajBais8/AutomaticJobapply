@@ -82,39 +82,16 @@ export class NaukriConnector extends BaseJobConnector {
 
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `naukri_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        logCallback(`Naukri authentication guard: ${check.reason}. Staging application.`, 'warning', screenshot);
-        return {
-          status: 'Verification Required',
-          details: `Login required on Naukri. Form parameters staged.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      const uploaded = await this.uploadResumeIfSupported(page, resume);
-
-      if (uploaded) {
-        logCallback(`Uploaded active resume (${resume?.originalName}) to Naukri portal`, 'info');
-      }
-
-      // Check for Easy Apply / Submit button
-      const applyBtn = await page.$('button:has-text("Apply"), input[value*="Apply" i], .apply-button');
-      if (applyBtn) {
-        logCallback(`Detected direct application trigger button for ${job.company}`, 'info', screenshot);
-      }
-
-      return {
-        status: 'Applied',
-        details: `Information and resume staged for ${job.company} (${job.role}).`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        '.apply-button',
+        'button:has-text("Apply")',
+        'button:has-text("Apply on company site")',
+        '#apply-button',
+        'button.styles_apply-button__o2l4p'
+      ]);
     } catch (err: any) {
       return {
-        status: 'Failed',
+        status: 'Submission Failed',
         details: `Naukri apply failed: ${err.message}`,
         error: err.message
       };

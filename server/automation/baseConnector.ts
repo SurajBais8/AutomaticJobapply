@@ -255,4 +255,236 @@ export abstract class BaseJobConnector {
     }
     return false;
   }
+
+  // Universal State Machine implementation for apply operations
+  public async executeStatefulApplyProcess(
+    page: Page,
+    job: Job,
+    profile: UserProfile,
+    resume: ResumeFile | null,
+    logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void,
+    applyButtonSelectors: string[] = []
+  ): Promise<ApplyResult> {
+    const initialUrl = page.url();
+
+    // Step 1: Checking Login, CAPTCHA, OTP
+    const check = await this.isBlockedOrLoginRequired(page);
+    if (check.blocked) {
+      const screenshot = await this.takeScreenshot(page, `${this.id}_blocked`);
+      if (check.requiresCaptcha) {
+        logCallback(`[${this.name}] CAPTCHA verification detected`, 'warning', screenshot);
+        return { status: 'CAPTCHA Required', details: 'Manual CAPTCHA challenge detected on page.', screenshotUrl: screenshot };
+      }
+      if (check.requiresOtp) {
+        logCallback(`[${this.name}] OTP verification required`, 'warning', screenshot);
+        return { status: 'Verification Required', details: 'OTP verification code required.', screenshotUrl: screenshot };
+      }
+      logCallback(`[${this.name}] Login required`, 'warning', screenshot);
+      return { status: 'Login Required', details: `Login required on ${this.name}.`, screenshotUrl: screenshot };
+    }
+
+    // Step 2: Check if Already Applied
+    const pageText = (await page.content().catch(() => '')).toLowerCase();
+    if (
+      pageText.includes('already applied') ||
+      pageText.includes('you have already applied') ||
+      pageText.includes('application submitted on') ||
+      pageText.includes('you applied on')
+    ) {
+      const screenshot = await this.takeScreenshot(page, `${this.id}_already_applied`);
+      logCallback(`[${this.name}] Already applied to this job previously`, 'info', screenshot);
+      return { status: 'Already Applied', details: `Already applied to ${job.company} for ${job.role}.`, screenshotUrl: screenshot };
+    }
+
+    // Step 3: Upload Resume
+    const hasFileInput = (await page.$('input[type="file"]').catch(() => null)) !== null;
+    if (resume && resume.path && fs.existsSync(resume.path)) {
+      try {
+        const uploaded = await this.uploadResumeIfSupported(page, resume);
+        if (uploaded) {
+          logCallback(`[${this.name}] Uploaded active resume (${resume.originalName})`, 'info');
+        } else if (hasFileInput) {
+          const screenshot = await this.takeScreenshot(page, `${this.id}_resume_failed`);
+          logCallback(`[${this.name}] Resume upload failed despite file field present`, 'warning', screenshot);
+          return { status: 'Resume Upload Failed', details: 'Failed to upload resume into job portal field.', screenshotUrl: screenshot };
+        }
+      } catch (err: any) {
+        const screenshot = await this.takeScreenshot(page, `${this.id}_resume_failed`);
+        return { status: 'Resume Upload Failed', details: `Resume upload error: ${err.message}`, screenshotUrl: screenshot };
+      }
+    }
+
+    // Step 4: Fill Profile
+    await this.fillCommonFields(page, profile);
+
+    // Step 5: Detect Apply Button
+    const combinedSelectors = [
+      ...applyButtonSelectors,
+      'button:has-text("Apply")',
+      'a:has-text("Apply")',
+      'input[value*="Apply" i]',
+      'button:has-text("Apply Now")',
+      'a:has-text("Apply Now")',
+      'button:has-text("Submit")',
+      'button:has-text("Submit Application")',
+      'button:has-text("Easy Apply")',
+      'button:has-text("Quick Apply")',
+      '.apply-button',
+      '.apply-btn',
+      '#apply-button',
+      '#applyBtn'
+    ];
+
+    let applyElement: any = null;
+    let chosenSelector = '';
+    for (const sel of combinedSelectors) {
+      try {
+        const el = await page.$(sel);
+        if (el) {
+          const isVisible = await el.isVisible().catch(() => false);
+          if (isVisible) {
+            applyElement = el;
+            chosenSelector = sel;
+            break;
+          }
+        }
+      } catch {}
+    }
+
+    if (!applyElement) {
+      const screenshot = await this.takeScreenshot(page, `${this.id}_no_apply_btn`);
+      logCallback(`[${this.name}] Apply button missing on page`, 'warning', screenshot);
+      return {
+        status: 'Apply Button Missing',
+        details: `Could not locate active Apply button on ${this.name} page.`,
+        screenshotUrl: screenshot
+      };
+    }
+
+    // Step 6: Take Screenshot BEFORE Click
+    const screenshotBefore = await this.takeScreenshot(page, `${this.id}_before_apply`);
+    logCallback(`[${this.name}] BEFORE CLICK: Detected Apply button ("${chosenSelector}"). Triggering application submit...`, 'info', screenshotBefore);
+
+    // Step 7: Click Apply
+    try {
+      await applyElement.click({ timeout: 10000 }).catch(async () => {
+        await page.evaluate((sel: string) => {
+          const btn = document.querySelector(sel) as HTMLElement;
+          if (btn) btn.click();
+        }, chosenSelector);
+      });
+      logCallback(`[${this.name}] Clicked Apply button for ${job.company}`, 'info');
+    } catch (clickErr: any) {
+      const screenshotErr = await this.takeScreenshot(page, `${this.id}_click_failed`);
+      logCallback(`[${this.name}] Failed to click apply button: ${clickErr.message}`, 'error', screenshotErr);
+      return {
+        status: 'Submission Failed',
+        details: `Error clicking Apply button: ${clickErr.message}`,
+        screenshotUrl: screenshotErr
+      };
+    }
+
+    // Step 8: Wait for Confirmation / Multi-step Modals
+    await page.waitForTimeout(3500);
+
+    const secondarySubmitSels = [
+      'button:has-text("Submit Application")',
+      'button:has-text("Submit")',
+      'button:has-text("Send Application")',
+      'button:has-text("Confirm Application")'
+    ];
+    for (const secSel of secondarySubmitSels) {
+      try {
+        const secEl = await page.$(secSel);
+        if (secEl && await secEl.isVisible().catch(() => false)) {
+          await secEl.click({ timeout: 5000 }).catch(() => {});
+          await page.waitForTimeout(2500);
+          break;
+        }
+      } catch {}
+    }
+
+    // Step 9: Take Screenshot AFTER Click
+    const screenshotAfter = await this.takeScreenshot(page, `${this.id}_after_apply`);
+    logCallback(`[${this.name}] AFTER CLICK: Completed click action. Evaluating application state...`, 'info', screenshotAfter);
+
+    // Step 10: Detect Success Message OR URL Change OR Success Banner
+    const finalUrl = page.url();
+    const finalContent = (await page.content().catch(() => '')).toLowerCase();
+
+    const isUrlSuccess =
+      finalUrl !== initialUrl &&
+      (finalUrl.includes('success') ||
+        finalUrl.includes('applied') ||
+        finalUrl.includes('thankyou') ||
+        finalUrl.includes('thank-you') ||
+        finalUrl.includes('confirmation'));
+
+    const isTextSuccess =
+      finalContent.includes('application submitted') ||
+      finalContent.includes('successfully applied') ||
+      finalContent.includes('applied successfully') ||
+      finalContent.includes('thank you for applying') ||
+      finalContent.includes('your application has been sent') ||
+      finalContent.includes('application received') ||
+      finalContent.includes('application complete') ||
+      finalContent.includes('you\'ve applied') ||
+      finalContent.includes('you have applied');
+
+    const successSelector = await page
+      .$('.apply-message, .success-message, .applied-banner, [class*="success-message"], [class*="applied-banner"]')
+      .catch(() => null);
+
+    if (isUrlSuccess || isTextSuccess || successSelector) {
+      logCallback(`[${this.name}] CONFIRMED: Application submitted successfully!`, 'success', screenshotAfter);
+      return {
+        status: 'Applied',
+        details: `Application confirmed submitted for ${job.company} (${job.role}).`,
+        screenshotUrl: screenshotAfter
+      };
+    }
+
+    // Check external ATS redirect
+    const isExternalRedirect =
+      finalUrl !== initialUrl &&
+      !finalUrl.includes(this.domain) &&
+      (finalUrl.includes('workday') ||
+        finalUrl.includes('greenhouse') ||
+        finalUrl.includes('lever') ||
+        finalUrl.includes('myworkdayjobs') ||
+        finalUrl.includes('icims') ||
+        finalUrl.includes('smartrecruiters') ||
+        finalUrl.includes('careers'));
+
+    if (isExternalRedirect) {
+      logCallback(`[${this.name}] Redirected to external career site (${finalUrl})`, 'warning', screenshotAfter);
+      return {
+        status: 'Ready For Confirmation',
+        details: `Redirected to external career portal (${finalUrl}). Manual submission required.`,
+        screenshotUrl: screenshotAfter
+      };
+    }
+
+    // Check error messages
+    if (
+      finalContent.includes('error submitting') ||
+      finalContent.includes('failed to submit') ||
+      finalContent.includes('please fill in required fields') ||
+      finalContent.includes('invalid file format')
+    ) {
+      logCallback(`[${this.name}] Submission error indicated on page`, 'error', screenshotAfter);
+      return {
+        status: 'Submission Failed',
+        details: `Page indicated an error during submission.`,
+        screenshotUrl: screenshotAfter
+      };
+    }
+
+    logCallback(`[${this.name}] Click performed; staged for user confirmation (No explicit success banner detected)`, 'warning', screenshotAfter);
+    return {
+      status: 'Ready For Confirmation',
+      details: `Click performed, but no explicit confirmation banner or URL change was returned by portal.`,
+      screenshotUrl: screenshotAfter
+    };
+  }
 }

@@ -78,27 +78,14 @@ export class InternshalaConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `internshala_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Internshala session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Internshala profile answers and resume staged.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply now")',
+        '.btn-primary:has-text("Apply")',
+        '#easy_apply_button',
+        'button.apply_button'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
@@ -175,27 +162,14 @@ export class UnstopConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `unstop_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Unstop session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Unstop registration details filled.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply Now")',
+        'button:has-text("Register")',
+        'button:has-text("Apply")',
+        '.register-btn'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
@@ -273,27 +247,14 @@ export class FreshersworldConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `freshersworld_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `Freshersworld session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `Freshersworld profile fields filled.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'a:has-text("Apply Now")',
+        'button:has-text("Apply")',
+        '.apply-btn',
+        'a.apply-button'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
@@ -371,27 +332,14 @@ export class TimesJobsConnector extends BaseJobConnector {
   ): Promise<ApplyResult> {
     try {
       await page.goto(job.applyLink, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      const screenshot = await this.takeScreenshot(page, `timesjobs_apply_${Date.now()}`);
-
-      const check = await this.isBlockedOrLoginRequired(page);
-      if (check.blocked) {
-        return {
-          status: 'Verification Required',
-          details: `TimesJobs session login required.`,
-          screenshotUrl: screenshot
-        };
-      }
-
-      await this.fillCommonFields(page, profile);
-      await this.uploadResumeIfSupported(page, resume);
-
-      return {
-        status: 'Applied',
-        details: `TimesJobs profile staged.`,
-        screenshotUrl: screenshot
-      };
+      return await this.executeStatefulApplyProcess(page, job, profile, resume, logCallback, [
+        'button:has-text("Apply")',
+        'a:has-text("Apply")',
+        '.applyJob',
+        'button.apply-btn'
+      ]);
     } catch (err: any) {
-      return { status: 'Failed', details: err.message, error: err.message };
+      return { status: 'Submission Failed', details: err.message, error: err.message };
     }
   }
 }
