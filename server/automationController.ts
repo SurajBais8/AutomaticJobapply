@@ -22,7 +22,7 @@ import { sessionManager } from './services/sessionManager.js';
 import { loginManager } from './services/loginManager.js';
 
 // Import Connectors
-import { BaseJobConnector } from './automation/baseConnector.js';
+import { BaseJobConnector, ApplyResult } from './automation/baseConnector.js';
 import { NaukriConnector } from './automation/naukri.js';
 import { IndeedConnector } from './automation/indeed.js';
 import { InstahyreConnector } from './automation/instahyre.js';
@@ -326,7 +326,7 @@ class AutomationController {
 
       this.addLog(`Navigating to ${job.company} (${job.role}) on ${job.sourceWebsite}...`, 'info');
 
-      let applyRes;
+      let applyRes: ApplyResult;
       if (connector) {
         const ctxObj = await this.getOrCreateContextForWebsite(connector.id);
         const page = ctxObj ? ctxObj.page : null;
@@ -337,14 +337,14 @@ class AutomationController {
           });
         } else {
           applyRes = {
-            status: 'Applied' as const,
-            details: `Staged profile inputs for ${job.role} at ${job.company}. Active resume attached.`
+            status: 'Ready For Confirmation',
+            details: `Browser page context unavailable for ${job.role} at ${job.company}. Manual confirmation required.`
           };
         }
       } else {
         applyRes = {
-          status: 'Applied' as const,
-          details: `Staged profile inputs for ${job.role} at ${job.company}.`
+          status: 'Ready For Confirmation',
+          details: `No active connector available for ${job.sourceWebsite}. Manual confirmation required.`
         };
       }
 
@@ -375,12 +375,19 @@ class AutomationController {
       if (applyRes.status === 'Applied') {
         this.state.successfulApps++;
         this.addLog(`✔ Applied to ${job.company} (${job.role})`, 'success', job.sourceWebsite, applyRes.screenshotUrl);
-      } else if (applyRes.status === 'Verification Required') {
+      } else if (
+        applyRes.status === 'Verification Required' ||
+        applyRes.status === 'Login Required' ||
+        applyRes.status === 'CAPTCHA Required' ||
+        applyRes.status === 'Ready For Confirmation'
+      ) {
         this.state.reviewRequiredCount++;
-        this.addLog(`⚠ Login or Verification Required for ${job.company}`, 'warning', job.sourceWebsite, applyRes.screenshotUrl);
+        this.addLog(`⚠ ${applyRes.status} for ${job.company}: ${applyRes.details}`, 'warning', job.sourceWebsite, applyRes.screenshotUrl);
+      } else if (applyRes.status === 'Already Applied') {
+        this.addLog(`ℹ Already applied to ${job.company} (${job.role})`, 'info', job.sourceWebsite, applyRes.screenshotUrl);
       } else {
         this.state.failedAttempts++;
-        this.addLog(`✖ Failed to apply to ${job.company}: ${applyRes.details}`, 'error', job.sourceWebsite, applyRes.screenshotUrl);
+        this.addLog(`✖ ${applyRes.status} for ${job.company}: ${applyRes.details}`, 'error', job.sourceWebsite, applyRes.screenshotUrl);
       }
 
       // Delay between jobs based on settings
