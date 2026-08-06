@@ -100,9 +100,9 @@ export default function App() {
           fetchLogs()
         ]);
 
-        setAutomationProgress(status);
-        setJobs(updatedJobs);
-        setAppLogs(logsRes.applicationLogs || []);
+        if (status) setAutomationProgress(status);
+        if (updatedJobs) setJobs(updatedJobs);
+        if (logsRes?.applicationLogs) setAppLogs(logsRes.applicationLogs);
       } catch (err) {
         // Silent catch for dev server polling
       }

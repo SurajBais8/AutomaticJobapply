@@ -23,17 +23,37 @@ export async function parseResumeFile(filePath: string): Promise<ParsedResume> {
   try {
     if (ext === '.pdf') {
       const dataBuffer = fs.readFileSync(filePath);
-      const pdfModule = await import('pdf-parse');
-      const parseFunc = (pdfModule as any).default || pdfModule;
-      const parsed = await parseFunc(dataBuffer);
-      text = parsed.text || '';
+      let pdfModule: any;
+      try {
+        pdfModule = await import('pdf-parse');
+      } catch {
+        pdfModule = null;
+      }
+      
+      let parseFunc = pdfModule?.default || pdfModule;
+      if (typeof parseFunc !== 'function' && pdfModule?.PDFParser) {
+        parseFunc = pdfModule.PDFParser;
+      }
+
+      if (typeof parseFunc === 'function') {
+        const parsed = await parseFunc(dataBuffer);
+        text = parsed?.text || '';
+      } else {
+        // Fallback text extraction if pdf-parse function is unavailable
+        text = dataBuffer.toString('utf-8').replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+      }
     } else {
       // Plain text or fallback
       text = fs.readFileSync(filePath, 'utf-8');
     }
   } catch (err) {
-    console.error('Failed to parse resume text:', err);
-    text = `Resume File (${path.basename(filePath)})`;
+    console.warn('Fallback text processing for resume:', err);
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      text = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+    } catch {
+      text = `Resume File (${path.basename(filePath)})`;
+    }
   }
 
   // Extract skills via keyword matching

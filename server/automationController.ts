@@ -21,6 +21,8 @@ import {
 } from './db.js';
 import { sessionManager } from './services/sessionManager.js';
 import { loginManager } from './services/loginManager.js';
+import { JobAgeParser } from './services/jobAgeParser.js';
+import { ExperienceFilterService } from './services/experienceFilterService.js';
 
 // Import Connectors
 import { BaseJobConnector, ApplyResult } from './automation/baseConnector.js';
@@ -285,6 +287,20 @@ class AutomationController {
         });
 
         for (const job of found) {
+          // Date Filter Check (Max 7 Days)
+          const isRecent = JobAgeParser.isWithinDays(job.datePosted || '', 7);
+          if (!isRecent) {
+            this.addLog(`Date Filter: Skipped older job "${job.role}" at "${job.company}" (${job.datePosted || 'Older than 7 days'})`, 'info', connector.name);
+            continue;
+          }
+
+          // Experience Filter Check
+          const isExpMatch = ExperienceFilterService.isExperienceMatch(profile.experience, job.experience);
+          if (!isExpMatch) {
+            this.addLog(`Experience Filter: Skipped "${job.role}" at "${job.company}" (Req: ${job.experience}, Candidate: ${profile.experience})`, 'info', connector.name);
+            continue;
+          }
+
           saveJob(job);
           allFoundJobs.push(job);
         }
@@ -440,6 +456,26 @@ class AutomationController {
     }
 
     this.state.isPaused = false;
+    this.state.requiresOtp = false;
+    this.state.requiresCaptcha = false;
+    this.state.requiresLogin = false;
+    this.state.pausedWebsite = undefined;
+  }
+
+  public resumeAutomation() {
+    this.addLog('Resuming automation from current page...', 'info');
+    this.state.isPaused = false;
+    this.state.requiresLogin = false;
+    this.state.requiresOtp = false;
+    this.state.requiresCaptcha = false;
+    this.state.pausedWebsite = undefined;
+  }
+
+  public skipCurrentWebsite() {
+    const target = this.state.pausedWebsite || this.state.currentWebsite;
+    this.addLog(`Skipping current website [${target}] by user request. Continuing pipeline...`, 'warning');
+    this.state.isPaused = false;
+    this.state.requiresLogin = false;
     this.state.requiresOtp = false;
     this.state.requiresCaptcha = false;
     this.state.pausedWebsite = undefined;

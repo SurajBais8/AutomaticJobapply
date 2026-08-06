@@ -1,9 +1,14 @@
 import { ResumeFile, UserProfile, WebsiteConfig, Job, ApplicationLog, LogEntry, AutomationProgress, SiteCredential, AutomationSettings } from '../types/index';
 
 export async function fetchResumes(): Promise<ResumeFile[]> {
-  const res = await fetch('/api/resumes');
-  if (!res.ok) throw new Error('Failed to fetch resumes');
-  return res.json();
+  try {
+    const res = await fetch('/api/resumes');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch resumes:', err);
+    return [];
+  }
 }
 
 export async function setActiveResume(id: string): Promise<void> {
@@ -32,10 +37,15 @@ export async function uploadResume(file: File): Promise<{ success: boolean; resu
   return res.json();
 }
 
-export async function fetchProfile(): Promise<UserProfile> {
-  const res = await fetch('/api/profile');
-  if (!res.ok) throw new Error('Failed to fetch profile');
-  return res.json();
+export async function fetchProfile(): Promise<UserProfile | null> {
+  try {
+    const res = await fetch('/api/profile');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch profile:', err);
+    return null;
+  }
 }
 
 export async function saveProfile(profile: UserProfile): Promise<{ success: boolean }> {
@@ -49,9 +59,14 @@ export async function saveProfile(profile: UserProfile): Promise<{ success: bool
 }
 
 export async function fetchCredentials(): Promise<SiteCredential[]> {
-  const res = await fetch('/api/credentials');
-  if (!res.ok) throw new Error('Failed to fetch credentials');
-  return res.json();
+  try {
+    const res = await fetch('/api/credentials');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch credentials:', err);
+    return [];
+  }
 }
 
 export async function saveCredential(cred: {
@@ -75,10 +90,15 @@ export async function deleteCredential(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete credential');
 }
 
-export async function fetchSettings(): Promise<AutomationSettings> {
-  const res = await fetch('/api/settings');
-  if (!res.ok) throw new Error('Failed to fetch settings');
-  return res.json();
+export async function fetchSettings(): Promise<AutomationSettings | null> {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch settings:', err);
+    return null;
+  }
 }
 
 export async function saveSettings(settings: AutomationSettings): Promise<void> {
@@ -91,9 +111,14 @@ export async function saveSettings(settings: AutomationSettings): Promise<void> 
 }
 
 export async function fetchWebsites(): Promise<WebsiteConfig[]> {
-  const res = await fetch('/api/websites');
-  if (!res.ok) throw new Error('Failed to fetch website sources');
-  return res.json();
+  try {
+    const res = await fetch('/api/websites');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch website sources:', err);
+    return [];
+  }
 }
 
 export async function startAutomation(websiteIds: string[], searchOnly: boolean = false): Promise<void> {
@@ -121,16 +146,40 @@ export async function submitOtp(otpCode: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to submit OTP');
 }
 
-export async function fetchAutomationStatus(): Promise<AutomationProgress> {
-  const res = await fetch('/api/automation/status');
-  if (!res.ok) throw new Error('Failed to fetch status');
-  return res.json();
+export async function resumeAutomation(): Promise<void> {
+  const res = await fetch('/api/automation/resume', {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Failed to resume automation');
+}
+
+export async function skipCurrentWebsite(): Promise<void> {
+  const res = await fetch('/api/automation/skip-website', {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Failed to skip website');
+}
+
+export async function fetchAutomationStatus(): Promise<AutomationProgress | null> {
+  try {
+    const res = await fetch('/api/automation/status');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch status:', err);
+    return null;
+  }
 }
 
 export async function fetchJobs(): Promise<Job[]> {
-  const res = await fetch('/api/jobs');
-  if (!res.ok) throw new Error('Failed to fetch jobs');
-  return res.json();
+  try {
+    const res = await fetch('/api/jobs');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch jobs:', err);
+    return [];
+  }
 }
 
 export async function clearJobs(): Promise<void> {
@@ -138,9 +187,14 @@ export async function clearJobs(): Promise<void> {
 }
 
 export async function fetchLogs(): Promise<{ applicationLogs: ApplicationLog[]; systemLogs: LogEntry[] }> {
-  const res = await fetch('/api/logs');
-  if (!res.ok) throw new Error('Failed to fetch logs');
-  return res.json();
+  try {
+    const res = await fetch('/api/logs');
+    if (!res.ok) return { applicationLogs: [], systemLogs: [] };
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch logs:', err);
+    return { applicationLogs: [], systemLogs: [] };
+  }
 }
 
 export async function clearLogs(): Promise<void> {

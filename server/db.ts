@@ -125,6 +125,11 @@ export async function getDb(): Promise<Database> {
     );
   `);
 
+  // Ensure missing columns on pre-existing database files are migrated safely
+  try { db.run("ALTER TABLE resumes ADD COLUMN isActive INTEGER DEFAULT 0"); } catch {}
+  try { db.run("ALTER TABLE user_credentials ADD COLUMN updatedAt TEXT"); } catch {}
+  try { db.run("ALTER TABLE jobs ADD COLUMN experience TEXT"); } catch {}
+
   saveDb();
   return db;
 }

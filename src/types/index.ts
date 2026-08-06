@@ -7,6 +7,10 @@ export type ApplicationStatus =
   | 'Applied' 
   | 'Ready For Confirmation'
   | 'Verification Required' 
+  | 'Waiting Login'
+  | 'Waiting OTP'
+  | 'Waiting CAPTCHA'
+  | 'Waiting User Input'
   | 'Login Required'
   | 'CAPTCHA Required'
   | 'Resume Upload Failed'
@@ -134,6 +138,7 @@ export interface LogEntry {
 export interface AutomationProgress {
   isRunning: boolean;
   isPaused: boolean;
+  requiresLogin?: boolean;
   requiresOtp?: boolean;
   requiresCaptcha?: boolean;
   pausedWebsite?: string;

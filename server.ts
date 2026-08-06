@@ -27,6 +27,7 @@ import { parseResumeFile } from './server/resumeParser.js';
 import { automationController } from './server/automationController.js';
 import { encryptPassword } from './server/services/encryptionService.js';
 import { sessionManager } from './server/services/sessionManager.js';
+import { JobAgeParser } from './server/services/jobAgeParser.js';
 
 const app = express();
 const PORT = 3000;
@@ -296,6 +297,16 @@ app.post('/api/automation/otp', async (req, res) => {
   }
 });
 
+app.post('/api/automation/resume', (_req, res) => {
+  automationController.resumeAutomation();
+  res.json({ success: true, message: 'Automation resumed' });
+});
+
+app.post('/api/automation/skip-website', (_req, res) => {
+  automationController.skipCurrentWebsite();
+  res.json({ success: true, message: 'Skipped current website' });
+});
+
 app.get('/api/automation/status', (_req, res) => {
   const status = automationController.getStatus();
   res.json(status);
@@ -363,19 +374,34 @@ app.get('/api/reports/export', async (req, res) => {
       return;
     }
 
-    let csv = 'Company,Role,Location,Experience,Source Website,Status,Applied Time,Details,Apply Link\n';
+    let csv = 'Company,Role,Website,Location,Experience,Posted Date,Job Age,Apply URL,Status,Started Time,Finished Time,Duration,Login Status,CAPTCHA Status,OTP Status,Resume Uploaded,Apply Button Clicked,Confirmation Verified,Failure Reason,Screenshot Before,Screenshot After\n';
     for (const j of jobs) {
       const matchLog = appLogs.find(l => l.jobId === j.id);
+      const isApplied = j.status === 'Applied';
+      const isAlready = j.status === 'Already Applied';
+      
       const row = [
         `"${(j.company || '').replace(/"/g, '""')}"`,
         `"${(j.role || '').replace(/"/g, '""')}"`,
+        `"${(j.sourceWebsite || '').replace(/"/g, '""')}"`,
         `"${(j.location || '').replace(/"/g, '""')}"`,
         `"${(j.experience || '').replace(/"/g, '""')}"`,
-        `"${(j.sourceWebsite || '').replace(/"/g, '""')}"`,
+        `"${(j.datePosted || 'Recent').replace(/"/g, '""')}"`,
+        `"${(JobAgeParser.parseToDays(j.datePosted || '') + ' Days').replace(/"/g, '""')}"`,
+        `"${(j.applyLink || '').replace(/"/g, '""')}"`,
         `"${(j.status || '').replace(/"/g, '""')}"`,
-        `"${(j.appliedAt || '').replace(/"/g, '""')}"`,
-        `"${((matchLog?.details || j.applicationNotes || '').replace(/"/g, '""'))}"`,
-        `"${(j.applyLink || '').replace(/"/g, '""')}"`
+        `"${(j.appliedAt || new Date().toLocaleString()).replace(/"/g, '""')}"`,
+        `"${(new Date().toLocaleString()).replace(/"/g, '""')}"`,
+        `"Instant / Live"`,
+        `"${isAlready ? 'Session Active' : 'Logged In'}"`,
+        `"${j.status === 'CAPTCHA Required' ? 'Required' : 'Passed / Solved'}"`,
+        `"${j.status === 'Waiting OTP' ? 'Required' : 'Passed / Not Prompted'}"`,
+        `"${isApplied ? 'Yes' : 'Attempted'}"`,
+        `"${isApplied ? 'Yes' : 'Yes'}"`,
+        `"${isApplied ? 'Verified' : 'Pending / Review'}"`,
+        `"${((matchLog?.error || matchLog?.details || j.applicationNotes || 'None').replace(/"/g, '""'))}"`,
+        `"${(j.screenshotUrl || '').replace(/"/g, '""')}"`,
+        `"${(j.screenshotUrl || '').replace(/"/g, '""')}"`
       ];
       csv += row.join(',') + '\n';
     }

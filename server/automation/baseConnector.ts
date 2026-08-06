@@ -217,6 +217,59 @@ export abstract class BaseJobConnector {
     }
   }
 
+  // Automatically dismiss cookie banners, newsletters, and promotional popups
+  public async dismissPopups(page: Page) {
+    const popupSelectors = [
+      'button[aria-label="Close"]',
+      'button[aria-label="close"]',
+      'button.close',
+      'button.modal-close',
+      '#close-popup',
+      '.cookie-banner button',
+      'button:has-text("Accept")',
+      'button:has-text("Accept All")',
+      'button:has-text("I Agree")',
+      'button:has-text("Got it")',
+      'button:has-text("Dismiss")',
+      'button:has-text("No thanks")',
+      '.sd-close',
+      '.crossIcon',
+      'span.crossIcon',
+      'button:has-text("Close")',
+      '.close-btn',
+      '#btn-close'
+    ];
+
+    for (const sel of popupSelectors) {
+      try {
+        const el = await page.$(sel);
+        if (el && (await el.isVisible().catch(() => false))) {
+          await el.click().catch(() => {});
+        }
+      } catch {}
+    }
+  }
+
+  // Handle new page / window.open() opening in new tab
+  public async handleNewPageOrTab(
+    context: BrowserContext,
+    triggerAction: () => Promise<void>
+  ): Promise<Page | null> {
+    try {
+      const pagePromise = context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+      await triggerAction();
+      const newTab = await pagePromise;
+      if (newTab) {
+        await newTab.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+        await this.dismissPopups(newTab);
+        return newTab;
+      }
+    } catch (err) {
+      console.error('Error handling new tab/page event:', err);
+    }
+    return null;
+  }
+
   // Helper to check if CAPTCHA or Login is blocking
   protected async isBlockedOrLoginRequired(page: Page): Promise<{ blocked: boolean; reason?: string; requiresCaptcha?: boolean; requiresOtp?: boolean }> {
     const content = (await page.content().catch(() => '')).toLowerCase();
@@ -337,16 +390,33 @@ export abstract class BaseJobConnector {
             await input.fill(answer).catch(() => {});
             handledCount++;
             logCallback(`[Screening Engine] Answered "Expected CTC": ${answer}`, 'info');
-          } else if (combinedText.includes('current ctc') || combinedText.includes('current salary')) {
+          } else if (combinedText.includes('current ctc') || combinedText.includes('current salary') || combinedText.includes('present ctc')) {
             const answer = profile.expectedCtc || 'Disclosed on request';
             await input.fill(answer).catch(() => {});
             handledCount++;
             logCallback(`[Screening Engine] Answered "Current CTC"`, 'info');
-          } else if (combinedText.includes('notice period') || combinedText.includes('how soon can you join')) {
+          } else if (combinedText.includes('notice period') || combinedText.includes('how soon can you join') || combinedText.includes('joining time')) {
             const answer = profile.currentNoticePeriod || 'Immediate / 15 Days';
             await input.fill(answer).catch(() => {});
             handledCount++;
             logCallback(`[Screening Engine] Answered "Notice Period": ${answer}`, 'info');
+          } else if (combinedText.includes('visa') || combinedText.includes('sponsorship') || combinedText.includes('work authorization') || combinedText.includes('legally authorized')) {
+            await input.fill('Yes / Authorized').catch(() => {});
+            handledCount++;
+            logCallback(`[Screening Engine] Answered "Work Authorization / Visa"`, 'info');
+          } else if (combinedText.includes('relocate') || combinedText.includes('relocation') || combinedText.includes('open to move')) {
+            await input.fill('Yes').catch(() => {});
+            handledCount++;
+            logCallback(`[Screening Engine] Answered "Relocation": Yes`, 'info');
+          } else if (combinedText.includes('current company') || combinedText.includes('employer') || combinedText.includes('organization')) {
+            await input.fill('Software Engineering Firm').catch(() => {});
+            handledCount++;
+          } else if (combinedText.includes('designation') || combinedText.includes('title') || combinedText.includes('role')) {
+            await input.fill(profile.jobRole || 'Software Engineer').catch(() => {});
+            handledCount++;
+          } else if (combinedText.includes('qualification') || combinedText.includes('education') || combinedText.includes('degree')) {
+            await input.fill('Bachelor of Technology (B.Tech) / Science').catch(() => {});
+            handledCount++;
           } else if (combinedText.includes('github')) {
             if (profile.githubUrl) {
               await input.fill(profile.githubUrl).catch(() => {});
@@ -365,9 +435,6 @@ export abstract class BaseJobConnector {
               handledCount++;
               logCallback(`[Screening Engine] Filled LinkedIn URL`, 'info');
             }
-          } else if (combinedText.includes('relocate') || combinedText.includes('relocation')) {
-            await input.fill('Yes').catch(() => {});
-            handledCount++;
           } else if (combinedText.includes('experience')) {
             const numericExp = (profile.experience || '1').replace(/[^0-9]/g, '') || '1';
             await input.fill(numericExp).catch(() => {});
