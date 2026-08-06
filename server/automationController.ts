@@ -246,6 +246,11 @@ class AutomationController {
         this.state.requiresCaptcha = true;
         this.state.pausedWebsite = websiteId;
         this.addLog(`Automation Paused: Waiting for manual CAPTCHA completion on ${websiteId}`, 'warning');
+      } else if (!loginRes.success) {
+        this.state.isPaused = true;
+        this.state.requiresLogin = true;
+        this.state.pausedWebsite = websiteId;
+        this.addLog(`Automation Paused: No credentials or session found for ${websiteId}. Save credentials or click Skip/Resume.`, 'warning');
       }
     }
 

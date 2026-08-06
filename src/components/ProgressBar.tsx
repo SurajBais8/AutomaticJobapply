@@ -119,6 +119,24 @@ export const ProgressBar: React.FC<Props> = ({ progress }) => {
             </button>
           </div>
 
+          {progress.requiresLogin && (
+            <div className="flex items-center justify-between bg-white p-2.5 rounded border border-amber-200">
+              <span className="text-slate-700 font-medium flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-600" /> Credentials or session missing. Please add details in Credentials Manager tab.
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleResume}
+                  disabled={isSubmitting}
+                  className="px-3 py-1 bg-amber-600 text-white rounded font-bold hover:bg-amber-700 flex items-center gap-1 cursor-pointer"
+                >
+                  <PlayCircle className="w-3.5 h-3.5" /> Continue
+                </button>
+              </div>
+            </div>
+          )}
+
           {progress.requiresOtp && (
             <form onSubmit={handleOtpSubmit} className="flex gap-2 items-center">
               <div className="relative flex-1">
