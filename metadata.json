@@ -1,0 +1,6 @@
+{
+  "name": "AI Job Apply Assistant",
+  "description": "Full-stack desktop/web assistant for organizing, searching, and automating job applications across job portals using Playwright, SQLite, and smart form-filling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
