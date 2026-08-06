@@ -31,6 +31,18 @@ interface Props {
   onStopAutomation: () => void;
 }
 
+const EXPERIENCE_OPTIONS = [
+  { value: 'Fresher', description: '0 Years (No Experience)' },
+  { value: '0–6 Months', description: 'Internship / Trainee' },
+  { value: '6 Months–1 Year', description: 'Junior' },
+  { value: '1–2 Years', description: 'Associate' },
+  { value: '2–3 Years', description: 'Mid Level' },
+  { value: '3–5 Years', description: 'Experienced' },
+  { value: '5–8 Years', description: 'Senior' },
+  { value: '8–12 Years', description: 'Lead' },
+  { value: '12+ Years', description: 'Architect / Principal' },
+];
+
 export const LeftPanel: React.FC<Props> = ({
   profile,
   resumes,
@@ -98,34 +110,73 @@ export const LeftPanel: React.FC<Props> = ({
           />
         </div>
 
-        {/* Experience & Location Grid */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Experience
-            </label>
-            <input
-              type="text"
-              value={profile.experience || ''}
-              onChange={e => handleInputChange('experience', e.target.value)}
-              placeholder="e.g. 5 Years"
-              className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
-            />
-          </div>
+        {/* Location */}
+        <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+            Location
+          </label>
+          <input
+            type="text"
+            value={profile.location || ''}
+            onChange={e => handleInputChange('location', e.target.value)}
+            placeholder="e.g. Remote / London"
+            className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+          />
+        </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              Location
-            </label>
-            <input
-              type="text"
-              value={profile.location || ''}
-              onChange={e => handleInputChange('location', e.target.value)}
-              placeholder="e.g. Remote / London"
-              className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
-            />
+        {/* Experience Selection Table */}
+        <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            Experience Selection
+          </label>
+          <div className="border border-slate-200 rounded overflow-hidden max-h-56 overflow-y-auto bg-white shadow-2xs">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px] font-semibold sticky top-0 z-10">
+                <tr>
+                  <th className="py-1.5 px-2 text-center w-10">Select</th>
+                  <th className="py-1.5 px-2 w-28">Experience</th>
+                  <th className="py-1.5 px-2">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {EXPERIENCE_OPTIONS.map((opt) => {
+                  const isSelected =
+                    profile.experience === opt.value ||
+                    (profile.experience === '5 Months' && opt.value === '0–6 Months') ||
+                    (profile.experience === '5 Years' && opt.value === '3–5 Years');
+
+                  return (
+                    <tr
+                      key={opt.value}
+                      onClick={() => handleInputChange('experience', opt.value)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50/90 text-blue-900 font-medium'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <td className="py-1.5 px-2 text-center align-middle">
+                        <input
+                          type="radio"
+                          name="experience"
+                          checked={isSelected}
+                          onChange={() => handleInputChange('experience', opt.value)}
+                          className="h-3.5 w-3.5 text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 align-middle font-semibold whitespace-nowrap text-[11px]">
+                        {opt.value}
+                      </td>
+                      <td className={`py-1.5 px-2 align-middle text-[11px] ${isSelected ? 'text-blue-800' : 'text-slate-500'}`}>
+                        {opt.description}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 
