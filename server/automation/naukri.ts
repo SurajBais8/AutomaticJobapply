@@ -11,7 +11,16 @@ export class NaukriConnector extends BaseJobConnector {
   buildSearchUrl(role: string, location: string, experience: string = ''): string {
     const cleanRole = (role || 'software-developer').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const cleanLoc = (location || 'pune').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return `https://www.naukri.com/${cleanRole}-jobs-in-${cleanLoc}`;
+    
+    let expParam = '';
+    const numMatch = experience.match(/\d+/);
+    if (numMatch) {
+      expParam = `?experience=${numMatch[0]}`;
+    } else if (experience.toLowerCase().includes('fresher')) {
+      expParam = `?experience=0`;
+    }
+
+    return `https://www.naukri.com/${cleanRole}-jobs-in-${cleanLoc}${expParam}`;
   }
 
   async searchJobs(
@@ -20,7 +29,7 @@ export class NaukriConnector extends BaseJobConnector {
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<Job[]> {
     const targetUrl = this.buildSearchUrl(profile.jobRole, profile.location, profile.experience);
-    logCallback(`Searching Naukri.com live listings: ${targetUrl}`, 'info');
+    logCallback(`Searching Naukri.com with experience filter (${profile.experience || 'All'}): ${targetUrl}`, 'info');
 
     try {
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
@@ -57,7 +66,7 @@ export class NaukriConnector extends BaseJobConnector {
             sourceWebsite: this.name,
             datePosted: 'Recently',
             matchScore: Math.max(70, 96 - i * 2),
-            matchReason: `Matches ${profile.jobRole} and skills (${profile.skills || 'Tech'})`,
+            matchReason: `Matches ${profile.jobRole}, ${profile.experience || 'Experience'}, and skills (${profile.skills || 'Tech'})`,
             status: 'New'
           });
         }

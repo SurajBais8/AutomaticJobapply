@@ -1,0 +1,16 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply')",
+    "a:has-text('Apply')",
+    ".applyJob",
+    "button.apply-btn"
+  ],
+  "searchInputs": {
+    "keyword": "#txtKeywords",
+    "location": "#txtLocation"
+  },
+  "successBanners": [
+    ".appliedMsg",
+    "[class*='success']"
+  ]
+}

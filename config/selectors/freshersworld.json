@@ -1,0 +1,16 @@
+{
+  "applyButtons": [
+    "a:has-text('Apply Now')",
+    "button:has-text('Apply')",
+    ".apply-btn",
+    "a.apply-button"
+  ],
+  "searchInputs": {
+    "keyword": "#kwd",
+    "location": "#loc"
+  },
+  "successBanners": [
+    ".apply-success",
+    "[class*='success']"
+  ]
+}

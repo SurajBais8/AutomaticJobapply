@@ -1,0 +1,50 @@
+{
+  "multiStepNextButtons": [
+    "button:has-text('Next')",
+    "button:has-text('Continue')",
+    "button:has-text('Save & Continue')",
+    "button:has-text('Save and Continue')",
+    "button:has-text('Proceed')",
+    "button:has-text('Review')",
+    "a:has-text('Next')",
+    "a:has-text('Continue')"
+  ],
+  "multiStepSubmitButtons": [
+    "button:has-text('Submit Application')",
+    "button:has-text('Submit')",
+    "button:has-text('Send Application')",
+    "button:has-text('Confirm Application')",
+    "button:has-text('Complete Application')",
+    "input[type='submit']"
+  ],
+  "atsDomains": [
+    "greenhouse.io",
+    "lever.co",
+    "myworkdayjobs.com",
+    "workday.com",
+    "ashbyhq.com",
+    "smartrecruiters.com",
+    "icims.com",
+    "successfactors.com",
+    "oraclecloud.com",
+    "phenompeople.com",
+    "jobvite.com",
+    "taleo.net",
+    "avature.net"
+  ],
+  "screeningQuestionKeywords": {
+    "whyHire": ["why should we hire you", "why do you want to work here", "why are you interested"],
+    "aboutSelf": ["tell me about yourself", "brief bio", "summary"],
+    "expectedCtc": ["expected ctc", "expected salary", "salary expectation", "desired salary"],
+    "currentCtc": ["current ctc", "current salary", "present ctc"],
+    "noticePeriod": ["notice period", "how soon can you join", "joining time"],
+    "immediateJoiner": ["immediate joiner", "can you join immediately", "available immediately"],
+    "openToRelocate": ["relocate", "open to relocation", "willing to relocate"],
+    "workAuthorization": ["work authorization", "authorized to work", "legally authorized"],
+    "visaStatus": ["visa", "require sponsorship", "need sponsorship"],
+    "experience": ["years of experience", "total experience", "relevant experience"],
+    "github": ["github", "github profile", "github link"],
+    "portfolio": ["portfolio", "website", "personal website"],
+    "linkedin": ["linkedin", "linkedin profile", "linkedin url"]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "applyButtons": [
+    "button.apply-button",
+    "button:has-text('Apply')",
+    "button:has-text('Apply on company site')",
+    "#apply-button",
+    "button.styles_apply-button__o2l4p",
+    "a:has-text('Apply')"
+  ],
+  "searchInputs": {
+    "keyword": "input[placeholder*='skills' i], input[placeholder*='designation' i], .keywordSugg input",
+    "location": "input[placeholder*='location' i], .locationSugg input",
+    "experience": "input[placeholder*='experience' i], #expInput",
+    "submit": "button:has-text('Search'), .qsbSubmit"
+  },
+  "successBanners": [
+    ".apply-message",
+    ".success-message",
+    ".applied-banner",
+    "[class*='success-message']",
+    "[class*='applied-banner']",
+    ".already-applied"
+  ]
+}

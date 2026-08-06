@@ -339,11 +339,29 @@ app.delete('/api/logs', async (_req, res) => {
   }
 });
 
-// CSV Report Export
-app.get('/api/reports/export', async (_req, res) => {
+// Report Export Endpoint (CSV & JSON formats)
+app.get('/api/reports/export', async (req, res) => {
   try {
     const jobs = await getJobs();
     const appLogs = await getAppLogs();
+    const format = (req.query.format as string) || 'csv';
+
+    if (format.toLowerCase() === 'json') {
+      const summary = {
+        exportedAt: new Date().toISOString(),
+        totalApplications: jobs.length,
+        applied: jobs.filter(j => j.status === 'Applied').length,
+        alreadyApplied: jobs.filter(j => j.status === 'Already Applied').length,
+        pendingConfirmation: jobs.filter(j => j.status === 'Ready For Confirmation' || j.status === 'Verification Required').length,
+        jobs,
+        logs: appLogs
+      };
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="job_applications_report.json"');
+      res.json(summary);
+      return;
+    }
 
     let csv = 'Company,Role,Location,Experience,Source Website,Status,Applied Time,Details,Apply Link\n';
     for (const j of jobs) {

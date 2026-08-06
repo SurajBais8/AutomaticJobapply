@@ -1,0 +1,16 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply')",
+    "a:has-text('Apply')",
+    ".employer-job-apply",
+    "button.btn-primary"
+  ],
+  "searchInputs": {
+    "keyword": "input[placeholder*='skills' i]",
+    "location": "input[placeholder*='location' i]"
+  },
+  "successBanners": [
+    ".applied-label",
+    "[class*='applied']"
+  ]
+}

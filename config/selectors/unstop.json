@@ -1,0 +1,16 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply Now')",
+    "button:has-text('Register')",
+    "button:has-text('Apply')",
+    ".register-btn"
+  ],
+  "searchInputs": {
+    "keyword": "input[placeholder*='Search']",
+    "location": "input[placeholder*='Location']"
+  },
+  "successBanners": [
+    ".registered-msg",
+    "[class*='success']"
+  ]
+}

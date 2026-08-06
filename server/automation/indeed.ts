@@ -9,7 +9,18 @@ export class IndeedConnector extends BaseJobConnector {
   searchUrlTemplate = 'https://www.indeed.com/jobs?q={role}&l={location}';
 
   buildSearchUrl(role: string, location: string, experience: string = ''): string {
-    return `https://www.indeed.com/jobs?q=${encodeURIComponent(role || 'developer')}&l=${encodeURIComponent(location || 'pune')}`;
+    let expLevel = '';
+    const lowerExp = experience.toLowerCase();
+    if (lowerExp.includes('fresher') || lowerExp.includes('0–6') || lowerExp.includes('0-6') || lowerExp.includes('junior')) {
+      expLevel = '&explvl=entry_level';
+    } else if (lowerExp.includes('senior') || lowerExp.includes('lead') || lowerExp.includes('architect')) {
+      expLevel = '&explvl=senior_level';
+    } else if (lowerExp.includes('mid') || lowerExp.includes('associate') || lowerExp.includes('experienced')) {
+      expLevel = '&explvl=mid_level';
+    }
+
+    const query = `${role || 'developer'} ${experience ? experience : ''}`.trim();
+    return `https://www.indeed.com/jobs?q=${encodeURIComponent(query)}&l=${encodeURIComponent(location || 'pune')}${expLevel}`;
   }
 
   async searchJobs(
@@ -18,7 +29,7 @@ export class IndeedConnector extends BaseJobConnector {
     logCallback: (msg: string, type?: 'info' | 'success' | 'warning' | 'error', screenshot?: string) => void
   ): Promise<Job[]> {
     const targetUrl = this.buildSearchUrl(profile.jobRole, profile.location, profile.experience);
-    logCallback(`Searching Indeed live portal: ${targetUrl}`, 'info');
+    logCallback(`Searching Indeed with experience filter (${profile.experience || 'All'}): ${targetUrl}`, 'info');
 
     try {
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
@@ -54,7 +65,7 @@ export class IndeedConnector extends BaseJobConnector {
             sourceWebsite: this.name,
             datePosted: 'Active',
             matchScore: Math.max(70, 94 - i * 2),
-            matchReason: `Matches role "${profile.jobRole}" and location "${loc}"`,
+            matchReason: `Matches role "${profile.jobRole}", experience "${profile.experience || 'Any'}", and location "${loc}"`,
             status: 'New'
           });
         }

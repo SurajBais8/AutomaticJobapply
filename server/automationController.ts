@@ -16,7 +16,8 @@ import {
   saveSystemLog,
   getUserProfile,
   getResumes,
-  getAutomationSettings
+  getAutomationSettings,
+  isAlreadyApplied
 } from './db.js';
 import { sessionManager } from './services/sessionManager.js';
 import { loginManager } from './services/loginManager.js';
@@ -321,6 +322,30 @@ class AutomationController {
       this.state.currentWebsite = job.sourceWebsite;
       this.state.currentStep = `[${i + 1}/${targetJobs.length}] Processing application for ${job.role} at ${job.company}`;
       this.state.currentJob = job;
+
+      // Duplicate Application Check
+      const isDuplicate = await isAlreadyApplied(job.company, job.role, job.sourceWebsite);
+      if (isDuplicate) {
+        this.addLog(`Skipping duplicate application for ${job.company} (${job.role}) on ${job.sourceWebsite}`, 'info');
+        job.status = 'Already Applied';
+        job.appliedAt = new Date().toLocaleString();
+        job.applicationNotes = 'Skipped: Application already exists in local database.';
+        saveJob(job);
+        
+        const dupLog: ApplicationLog = {
+          id: `applog_${Date.now()}_${i}`,
+          jobId: job.id,
+          company: job.company,
+          role: job.role,
+          sourceWebsite: job.sourceWebsite,
+          timestamp: new Date().toLocaleString(),
+          status: 'Already Applied',
+          details: 'Skipped: Application already exists in local database.'
+        };
+        saveAppLog(dupLog);
+        this.state.jobsProcessed++;
+        continue;
+      }
 
       const connector = Array.from(this.connectors.values()).find(c => c.name === job.sourceWebsite);
 

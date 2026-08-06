@@ -1,0 +1,16 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply now')",
+    ".btn-primary:has-text('Apply')",
+    "#easy_apply_button",
+    "button.apply_button"
+  ],
+  "searchInputs": {
+    "keyword": "input[placeholder*='e.g. Web Development']",
+    "location": "input[placeholder*='e.g. Delhi']"
+  },
+  "successBanners": [
+    ".application_submitted_heading",
+    "[class*='success']"
+  ]
+}

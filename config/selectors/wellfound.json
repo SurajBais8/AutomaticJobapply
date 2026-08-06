@@ -1,0 +1,15 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply')",
+    "button:has-text('Learn More & Apply')",
+    "[data-test='ApplyButton']"
+  ],
+  "searchInputs": {
+    "keyword": "input[placeholder*='Search' i]",
+    "location": "input[placeholder*='Location' i]"
+  },
+  "successBanners": [
+    "[data-test='AppliedBadge']",
+    "[class*='applied']"
+  ]
+}

@@ -452,6 +452,44 @@ export async function clearJobs() {
   saveDb();
 }
 
+export async function isAlreadyApplied(company: string, role: string, sourceWebsite: string): Promise<boolean> {
+  const database = await getDb();
+  const stmt = database.prepare(
+    `SELECT COUNT(*) as count FROM jobs 
+     WHERE LOWER(company) = LOWER(?) 
+     AND LOWER(role) = LOWER(?) 
+     AND LOWER(sourceWebsite) = LOWER(?) 
+     AND status IN ('Applied', 'Already Applied')`
+  );
+  stmt.bind([company.trim(), role.trim(), sourceWebsite.trim()]);
+  let count = 0;
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    count = Number(row.count || 0);
+  }
+  stmt.free();
+
+  if (count > 0) return true;
+
+  // Also check application_logs
+  const stmt2 = database.prepare(
+    `SELECT COUNT(*) as count FROM application_logs 
+     WHERE LOWER(company) = LOWER(?) 
+     AND LOWER(role) = LOWER(?) 
+     AND LOWER(sourceWebsite) = LOWER(?) 
+     AND status IN ('Applied', 'Already Applied')`
+  );
+  stmt2.bind([company.trim(), role.trim(), sourceWebsite.trim()]);
+  let logCount = 0;
+  if (stmt2.step()) {
+    const row = stmt2.getAsObject();
+    logCount = Number(row.count || 0);
+  }
+  stmt2.free();
+
+  return logCount > 0;
+}
+
 export async function saveAppLog(log: ApplicationLog) {
   const database = await getDb();
   database.run(

@@ -1,0 +1,19 @@
+{
+  "applyButtons": [
+    "button:has-text('Apply now')",
+    "button:has-text('Easily apply')",
+    "#indeedApplyButton",
+    "button.indeed-apply-button",
+    "button:has-text('Apply')"
+  ],
+  "searchInputs": {
+    "keyword": "input[id*='text-input-what']",
+    "location": "input[id*='text-input-where']",
+    "submit": "button[type='submit']"
+  },
+  "successBanners": [
+    ".ia-JobApply-success",
+    "[class*='success']",
+    ".already-applied"
+  ]
+}
