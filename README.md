@@ -900,6 +900,55 @@ CSV accuracy
 
 Final Assessment
 
+
+Step 1: Download / Export the Project
+Download as ZIP (and extract it into a folder on your computer), OR
+Export to GitHub (and clone the repository to your computer).
+Step 2: Prerequisites
+Make sure you have installed on your computer:
+Node.js (v18.0 or higher) — Download Node.js
+Git (if cloning via GitHub)
+Step 3: Open Terminal / Command Prompt
+Open VS Code, Terminal, or Command Prompt.
+Navigate into your project directory:
+code
+Bash
+cd path/to/your-project-folder
+Step 4: Install Dependencies
+Run the following command to install all NPM packages:
+code
+Bash
+npm install
+Step 5: Install Playwright Browsers
+Since the app uses Playwright for automated job searching and applying, you must install the Chromium browser binaries locally:
+code
+Bash
+npx playwright install chromium
+Step 6: Configure Environment Variables
+Create a file named .env in the root directory of the project.
+Add your Gemini API key inside .env:
+code
+Env
+GEMINI_API_KEY="your_actual_gemini_api_key_here"
+(You can get a free Gemini API key from Google AI Studio).
+Step 7: Start the App in Development Mode
+Run the development command:
+code
+Bash
+npm run dev
+Once started, open your web browser and go to:
+👉 http://localhost:3000
+Step 8: Build for Production (Optional)
+If you want to run the production build locally:
+code
+Bash
+# 1. Build client and server bundle
+npm run build
+
+# 2. Start production server
+npm run start
+
+
 The project has evolved from a basic job scraper into a modular AI-Assisted Job Application Engine.
 
 The architecture and core automation framework are largely implemented. The primary remaining challenge is validating and stabilizing each website connector against real-world behavior.
